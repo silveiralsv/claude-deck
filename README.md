@@ -77,22 +77,17 @@ The deck lives in the menu bar as a small Clawd. Click it to open the deck.
 
 ## Build from source
 
-You need macOS 15+ and the Xcode Command Line Tools (`xcode-select --install`). Full Xcode is not required. [INSTALL.md](INSTALL.md#2b-or-build-from-source) has the same steps with checks.
+You need macOS 15+ and the Xcode Command Line Tools (`xcode-select --install`). Full Xcode is not required.
 
 ```sh
 git clone https://github.com/silveiralsv/claude-deck.git
 cd claude-deck
 ./build.sh
-open ClaudeDeck.app
+ditto ClaudeDeck.app /Applications/ClaudeDeck.app
+open /Applications/ClaudeDeck.app
 ```
 
-Then install the hooks once, from the **Install hooks** button, or from the shell:
-
-```sh
-ClaudeDeck.app/Contents/MacOS/ClaudeDeck --install-hooks
-```
-
-This copies `scripts/hook.sh` to `~/.claude-deck/hook.sh` and adds it to the `settings.json` of each config dir. A backup goes to `settings.json.claude-deck.bak` first. Running it again does nothing. The hook prints nothing, so it adds no tokens to your sessions.
+Then click the menu bar Clawd and **Install hooks**. [INSTALL.md](INSTALL.md#2b-or-build-from-source) has the same steps with a check for each, the command-line way to install the hooks, and what they change.
 
 The build is signed ad hoc, so macOS can ask for the Automation permission again after a rebuild.
 
@@ -133,7 +128,7 @@ Ghostty 1.3 does not expose the tty of a terminal over AppleScript. So the app s
 
 ## Uninstall
 
-Remove the `hook.sh` entries from the `hooks` key of your `settings.json` (or restore `settings.json.claude-deck.bak`), then delete `~/.claude-deck` and `ClaudeDeck.app`.
+Quit the app, remove the `hook.sh` entries from your `settings.json` files, then delete `~/.claude-deck` and the app. [INSTALL.md](INSTALL.md#uninstall) has the exact steps.
 
 ## Disclaimer
 

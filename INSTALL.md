@@ -75,6 +75,8 @@ To run the tests too: `scripts/test.sh`. Use that script, not a bare `swift test
 
 ## 3. Open the app
 
+If step 1 found a copy running from another path, ask the user to quit it first. macOS runs one copy at a time, so `open` would bring that copy forward instead of starting the installed one.
+
 ```sh
 open /Applications/ClaudeDeck.app
 ```
@@ -143,14 +145,16 @@ A new build has a new ad hoc signature, so macOS asks again after each update.
 | Cards never show **needs you**, or stay **working** | The hooks are missing. Run step 4, send a prompt, and check `~/.claude-deck/state`. Restart the session. |
 | **Open terminal** shows "Tab not found" | The session runs in a terminal other than Ghostty 1.3+ or Terminal.app, or the Automation permission is off (step 5). |
 | **Open terminal** shows "No terminal" | The session has no terminal, for example it runs inside an IDE. |
+| `pgrep -lf /Applications/ClaudeDeck.app` prints nothing after `open` | Another copy of Claude Deck is running from a different path. Ask the user to quit it, then `open /Applications/ClaudeDeck.app` again. |
 | `swift test` says "no such module 'Testing'" | Use `scripts/test.sh`. |
 
 ## Update
 
 1. Quit the installed copy only: `pkill -f /Applications/ClaudeDeck.app/`
-2. Repeat step 2a or 2b. The `ditto` there replaces the app.
-3. `open /Applications/ClaudeDeck.app`
-4. Run `--install-hooks` from step 4 again. It updates `~/.claude-deck/hook.sh`, and changes no settings file when the hooks are already there.
+2. Remove the old app: `rm -rf /Applications/ClaudeDeck.app`. `ditto` copies on top of an existing app and keeps files the new version no longer has, which breaks its signature.
+3. Repeat step 2a or 2b.
+4. `open /Applications/ClaudeDeck.app`
+5. Run `--install-hooks` from step 4 again: it also updates `~/.claude-deck/hook.sh`. If the user hasn't approved the hooks before, or the step 4 preview lists a settings file that wasn't there at the last install, show the preview and ask first, as in step 4. When the hooks are already in every file, it changes no settings file.
 
 ## Uninstall
 
