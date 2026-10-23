@@ -21,12 +21,13 @@ struct ClaudeDeckApp: App {
         MenuBarExtra {
             DeckView(store: store)
         } label: {
+            // Clawd raises its arms while sessions need you, next to how many.
             let waiting = store.sessions.filter { $0.status == .needsYou }.count
             if waiting > 0 {
-                Image(systemName: "exclamationmark.bubble.fill")
+                Image(nsImage: Clawd.menuBarAlert)
                 Text("\(waiting)")
             } else {
-                Image(systemName: "square.grid.2x2")
+                Image(nsImage: Clawd.menuBar)
             }
         }
         .menuBarExtraStyle(.window)

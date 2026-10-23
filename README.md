@@ -14,6 +14,7 @@
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/Claude%20Code-hooks-D97757" alt="Claude Code hooks">
   <img src="https://img.shields.io/badge/tokens%20used-0-4CC38A" alt="Uses no tokens">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/silveiralsv/claude-deck?color=blue" alt="MIT license"></a>
 </p>
 
 <p align="center">
@@ -24,7 +25,7 @@
 
 - **One place for every session.** Terminal tabs, several projects, several accounts (`claude`, `claude-work`, … set up with `CLAUDE_CONFIG_DIR`): every running session gets a card.
 - **A Clawd per session.** Each session gets its own Clawd, with a color and a hat that stay the same while it runs. Its pose tells you the status.
-- **Knows when it needs you.** Permission prompts, questions and plans waiting for approval jump to the top, with a red border and a counter on the menu bar icon.
+- **Knows when it needs you.** Permission prompts, questions and plans waiting for approval jump to the top, with a red border. In the menu bar, Clawd raises its arms and shows how many.
 - **Sees background work.** A session whose turn is over but still runs shells, monitors or agents shows them, so "done" really means done.
 - **One click to the terminal.** **Open terminal** brings the session's tab to the front in Ghostty or Terminal.app.
 - **Light and private.** Native SwiftUI, no dependencies. About 1.5% CPU and 130 MB with the deck window open. It only reads files that Claude Code already writes on your Mac, so it uses no tokens and sends nothing anywhere.
@@ -48,12 +49,12 @@ Clawd is drawn from the same block glyphs and poses that Claude Code prints in t
 
 ## Usage
 
-The deck lives in the menu bar. Click the icon to open it.
+The deck lives in the menu bar as a small Clawd. Click it to open the deck.
 
 - **Show deck** opens the same deck as a window that stays above other apps. **Hide deck** closes it. The app remembers the choice on the next launch.
 - **Open terminal** on a card focuses that session's tab. The first time, macOS asks to let Claude Deck control Ghostty (or Terminal). Allow it.
 - **Install hooks** sets up the Claude Code hooks that report the status (see below).
-- The menu bar icon shows how many sessions need you.
+- When sessions need you, the menu bar Clawd raises its arms and shows how many.
 
 ## Build from source
 
@@ -118,3 +119,7 @@ Remove the `hook.sh` entries from the `hooks` key of your `settings.json` (or re
 ## Disclaimer
 
 Claude Deck is an unofficial fan project, not made or endorsed by Anthropic. Clawd is Anthropic's mascot.
+
+## License
+
+[MIT](LICENSE)

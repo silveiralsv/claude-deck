@@ -52,6 +52,31 @@ enum Clawd {
     }
 }
 
+extension Clawd {
+    static let menuBar = menuBarImage(arms: .down)
+    static let menuBarAlert = menuBarImage(arms: .up)
+
+    /// Clawd as a menu bar template image: macOS colors the body for a light or dark menu bar, and the eyes are holes.
+    private static func menuBarImage(arms: Arms) -> NSImage {
+        let rows = pixels(eyes: .open, arms: arms)
+        let px = 1.5
+        let image = NSImage(size: NSSize(width: Double(width) * px, height: Double(height) * px), flipped: true) { _ in
+            // One path for all pixels: filled one by one, their antialiased edges leave a grid on a 1x display.
+            let shape = NSBezierPath()
+            for (y, row) in rows.enumerated() {
+                for (x, pixel) in row.enumerated() where pixel == "#" {
+                    shape.appendRect(NSRect(x: Double(x) * px, y: Double(y) * px, width: px, height: px))
+                }
+            }
+            NSColor.black.setFill()
+            shape.fill()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+}
+
 /// Hats drawn above Clawd's head, 18 x 6 pixels.
 /// "a" is an accent color, "w" white, "g" gold, "r" ruby, "k" dark.
 enum Hat: CaseIterable {
