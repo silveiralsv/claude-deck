@@ -38,3 +38,9 @@ Every pet redraw is a layout and render pass of the whole window. Most regressio
 ## Language
 
 The UI is in English only. Write UI text as SwiftUI string literals (`Text("…")`, `Button("…")`) or `String(localized:)`, so translations can be added later with a `Localizable.xcstrings` file.
+
+## Release
+
+Push a tag like `v0.2.0`. `.github/workflows/build.yml` runs the tests, builds `ClaudeDeck.app` with that version (`./build.sh` reads `$VERSION`), zips it and publishes a GitHub release with `ClaudeDeck.zip`. Pushes to `main` and pull requests run the same build without a release. The build is signed ad hoc, not notarized: there is no Apple Developer account yet, so INSTALL.md tells users to remove the quarantine flag.
+
+When the install steps change, update INSTALL.md: other people's agents follow it to install the app.

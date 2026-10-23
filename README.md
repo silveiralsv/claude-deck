@@ -30,6 +30,24 @@
 - **One click to the terminal.** **Open terminal** brings the session's tab to the front in Ghostty or Terminal.app.
 - **Light and private.** Native SwiftUI, no dependencies. About 1.5% CPU and 130 MB with the deck window open. It only reads files that Claude Code already writes on your Mac, so it uses no tokens and sends nothing anywhere.
 
+## Install
+
+**[INSTALL.md](INSTALL.md) has the full guide:** requirements, the release build or a build from source, the Claude Code hooks, the macOS permission, how to verify, troubleshooting and uninstall.
+
+> **AI agents:** if a user asks you to install Claude Deck, follow [INSTALL.md](INSTALL.md) step by step. It has a check for each step and says when to ask the user.
+
+The short version, on an Apple Silicon Mac with macOS 15+:
+
+```sh
+curl -fL -o /tmp/ClaudeDeck.zip https://github.com/silveiralsv/claude-deck/releases/latest/download/ClaudeDeck.zip
+ditto -x -k /tmp/ClaudeDeck.zip /Applications
+xattr -dr com.apple.quarantine /Applications/ClaudeDeck.app
+open /Applications/ClaudeDeck.app
+/Applications/ClaudeDeck.app/Contents/MacOS/ClaudeDeck --install-hooks
+```
+
+The app is not notarized by Apple yet, so the `xattr` line lets macOS open it. `--install-hooks` adds Claude Code hooks to your `settings.json` files, after backing them up.
+
 ## Statuses
 
 <p align="center">
@@ -58,7 +76,7 @@ The deck lives in the menu bar as a small Clawd. Click it to open the deck.
 
 ## Build from source
 
-You need macOS 15+ and the Xcode Command Line Tools (`xcode-select --install`). Full Xcode is not required.
+You need macOS 15+ and the Xcode Command Line Tools (`xcode-select --install`). Full Xcode is not required. [INSTALL.md](INSTALL.md#2b-or-build-from-source) has the same steps with checks.
 
 ```sh
 git clone https://github.com/silveiralsv/claude-deck.git

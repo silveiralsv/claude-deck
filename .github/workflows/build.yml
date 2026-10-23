@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-26
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Test
+        run: ./scripts/test.sh
+
+      - name: Bundle
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
+          ./build.sh
+
+      - name: Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ditto -c -k --keepParent ClaudeDeck.app ClaudeDeck.zip
+          gh release create "$GITHUB_REF_NAME" ClaudeDeck.zip --generate-notes
