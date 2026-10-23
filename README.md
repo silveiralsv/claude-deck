@@ -6,7 +6,9 @@ A macOS menu bar app that shows every running [Claude Code](https://claude.com/c
 - **terminou** (done): the pet smiles
 - **precisa de você** (needs you): the pet turns red and shakes. A permission prompt, a question or a plan is waiting for you.
 
-Each card has an **Abrir terminal** (open terminal) button that brings the session's tab to the front in Ghostty or Terminal.app.
+Each card shows the session's title: the one you set with `/rename`, else the title Claude Code generates for the conversation (the same one in the terminal tab). Each card also has an **Abrir terminal** (open terminal) button that brings the session's tab to the front in Ghostty or Terminal.app.
+
+Cards that need you come first, then the working ones, then the done ones with the most recently finished first.
 
 **Exibir deck** (show deck) opens the same deck as a window that stays above other apps, so it doesn't have to live behind the menu bar icon. **Esconder deck** (hide deck) closes it. The app remembers the choice on the next launch.
 
@@ -45,6 +47,7 @@ The first time you click **Abrir terminal**, macOS asks to let Claude Deck contr
 |---|---|
 | `~/.claude*/sessions/<pid>.json`, written by Claude Code | The list of live sessions, their name, folder and a busy/idle status |
 | Claude Code hooks, saved by `hook.sh` to `~/.claude-deck/state/<session_id>.json` | The status: working, done, needs you |
+| The end of `~/.claude*/projects/<folder>/<session_id>.jsonl`, the session transcript | The `custom-title` or `ai-title` of the session |
 | `sysctl` on the session's pid | The session's tty |
 | AppleScript | Focus the Ghostty or Terminal.app tab of that tty |
 
@@ -68,7 +71,7 @@ scripts/test.sh
 
 ## Limitations
 
-- `sessions/<pid>.json` is not a documented Claude Code format. It can change in a new version.
+- `sessions/<pid>.json` and the title lines of the transcript are not a documented Claude Code format. They can change in a new version.
 - Ghostty's AppleScript API is a preview in 1.3 and can change in 1.4.
 - Only config dirs named `~/.claude*` are found.
 - iTerm2, VS Code and other terminals are not supported yet.

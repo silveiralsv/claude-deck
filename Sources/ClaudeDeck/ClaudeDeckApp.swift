@@ -127,7 +127,10 @@ struct SessionCard: View {
     var body: some View {
         VStack(spacing: 4) {
             PetView(status: session.status)
-            Text(session.name).font(.caption.bold()).lineLimit(1)
+            Text(session.title ?? session.name)
+                .font(.caption.bold())
+                .multilineTextAlignment(.center)
+                .lineLimit(2, reservesSpace: true)
             Text("\(session.account) · \(URL(fileURLWithPath: session.cwd).lastPathComponent)")
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             Text(session.status.label).font(.caption2.bold()).foregroundStyle(session.status.color)
@@ -138,7 +141,7 @@ struct SessionCard: View {
         .padding(8)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: 8).fill(session.status.color.opacity(0.12)))
-        .help(session.cwd)
+        .help("\(session.title ?? session.name)\n\(session.name) · \(session.cwd)")
     }
 }
 
