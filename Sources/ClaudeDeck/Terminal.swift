@@ -4,10 +4,10 @@ enum TerminalFocus {
     /// Brings the terminal tab that runs `pid` to the front. Returns an error message, or nil on success.
     @MainActor
     static func focus(pid: Int32) -> String? {
-        guard let tty = tty(of: pid) else { return "sessão sem terminal" }
+        guard let tty = tty(of: pid) else { return String(localized: "No terminal") }
         if isRunning("com.mitchellh.ghostty"), focusGhostty(tty: tty) { return nil }
         if isRunning("com.apple.Terminal"), run(terminalScript(tty: tty))?.booleanValue == true { return nil }
-        return "aba não encontrada"
+        return String(localized: "Tab not found")
     }
 
     static func tty(of pid: Int32) -> String? {

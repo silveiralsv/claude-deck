@@ -1,21 +1,21 @@
 # Claude Deck
 
-A macOS menu bar app that shows every running [Claude Code](https://claude.com/claude-code) session as a card, with a small pixel pet that tells you what the session is doing:
+A macOS menu bar app that shows every running [Claude Code](https://claude.com/claude-code) session as a card, with a pixel Clawd that tells you what the session is doing.
 
-- **trabalhando** (working): the pet bounces and looks around
-- **em segundo plano** (background): the turn is over, but shells, monitors or agents it started still run. The pet turns blue and looks around slowly, and the card counts them ("3 shells · 1 agente").
-- **terminou** (done): the pet smiles
-- **precisa de você** (needs you): the pet turns red and shakes. A permission prompt, a question or a plan is waiting for you.
+Each session gets its own Clawd: a body color from a 16-color palette and a hat (party hat, cap, crown, top hat, bow, beanie or none), both picked from the session's process, so they stay the same while it runs. Clawd is drawn from the same block glyphs and poses that Claude Code prints in the terminal. The pose and the card show the status:
 
-Each card shows the session's title: the one you set with `/rename`, else the title Claude Code generates for the conversation (the same one in the terminal tab). Each card also has an **Abrir terminal** (open terminal) button that brings the session's tab to the front in Ghostty or Terminal.app.
+- **needs you**: Clawd waves its arms, with a "!" and a red border. A permission prompt, a question or a plan is waiting for you.
+- **working**: Clawd hops and looks left and right.
+- **in background**: the turn is over, but shells, monitors or agents it started still run. Clawd looks left and right slowly, and the card counts them ("3 shells · 1 agent").
+- **done**: Clawd stands still.
+
+Each card shows the session's title: the one you set with `/rename`, else the title Claude Code generates for the conversation (the same one in the terminal tab). Each card also has an **Open terminal** button that brings the session's tab to the front in Ghostty or Terminal.app.
 
 Cards that need you come first, then the working ones, then the background ones, then the done ones with the most recently finished first.
 
-**Exibir deck** (show deck) opens the same deck as a window that stays above other apps, so it doesn't have to live behind the menu bar icon. **Esconder deck** (hide deck) closes it. The app remembers the choice on the next launch.
+**Show deck** opens the same deck as a window that stays above other apps, so it doesn't have to live behind the menu bar icon. **Hide deck** closes it. The app remembers the choice on the next launch.
 
 It works with several Claude Code accounts at once (for example `claude`, `claude-work`, `claude-oss` set up with `CLAUDE_CONFIG_DIR`). It reads every `~/.claude*` config dir that has a `sessions` folder.
-
-The UI is in Portuguese.
 
 ![Session cards](docs/cards.png)
 
@@ -32,7 +32,7 @@ The UI is in Portuguese.
 open ClaudeDeck.app
 ```
 
-Then install the hooks once, from the **Instalar hooks** button in the menu, or from the shell:
+Then install the hooks once, from the **Install hooks** button in the menu, or from the shell:
 
 ```sh
 ClaudeDeck.app/Contents/MacOS/ClaudeDeck --install-hooks
@@ -40,7 +40,7 @@ ClaudeDeck.app/Contents/MacOS/ClaudeDeck --install-hooks
 
 This copies `scripts/hook.sh` to `~/.claude-deck/hook.sh` and adds it to the `settings.json` of each config dir. A backup goes to `settings.json.claude-deck.bak` first. Running it again does nothing.
 
-The first time you click **Abrir terminal**, macOS asks to let Claude Deck control Ghostty (or Terminal). Allow it. The build is signed ad hoc, so macOS can ask again after a rebuild.
+The first time you click **Open terminal**, macOS asks to let Claude Deck control Ghostty (or Terminal). Allow it. The build is signed ad hoc, so macOS can ask again after a rebuild.
 
 ## How it works
 
@@ -80,6 +80,10 @@ scripts/test.sh
 - Ghostty's AppleScript API is a preview in 1.3 and can change in 1.4.
 - Only config dirs named `~/.claude*` are found.
 - iTerm2, VS Code and other terminals are not supported yet.
+
+## Disclaimer
+
+Claude Deck is an unofficial fan project, not made or endorsed by Anthropic. Clawd is Anthropic's mascot.
 
 ## Uninstall
 

@@ -19,6 +19,8 @@ struct Session: Identifiable, Equatable {
     var title: String? = nil
     var shells = 0
     var agents = 0
+    /// Picks the color and hat of the session's pet.
+    var seed: UInt64 = 0
     var id: Int32 { pid }
 }
 
@@ -42,6 +44,7 @@ private struct LiveSession: Decodable {
     let kind: String?
     let status: String?
     let statusUpdatedAt: Double?
+    let startedAt: Double?
 }
 
 /// The latest hook event of a session, as stored by hook.sh.
@@ -167,31 +170,39 @@ private struct TitleEntry: Decodable {
     let customTitle: String?
 }
 
-/// The title of a session from the end of its transcript: the one set with /rename, else the AI-generated one.
-/// Transcripts reach tens of MB, so only the end is read.
-/// ponytail: gives up past the last 4 MB; the store then keeps the title it had before.
-func transcriptTitle(_ url: URL) -> String? {
+/// The title of a session from its transcript: the one set with /rename, else the AI-generated one.
+/// Transcripts reach tens of MB, so only the end is read: the last 256 KB, then the last 4 MB.
+/// With `after`, only the bytes written since that offset are read, so a growing transcript stays cheap.
+/// ponytail: a title further back than 4 MB is missed until Claude appends it again on the next turn.
+func transcriptTitle(_ url: URL, after offset: UInt64? = nil) -> String? {
     guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
     defer { try? handle.close() }
     let size = (try? handle.seekToEnd()) ?? 0
-    for window: UInt64 in [256 << 10, 4 << 20] {
-        guard (try? handle.seek(toOffset: size > window ? size - window : 0)) != nil,
-              let data = try? handle.readToEnd()
-        else { return nil }
-        var ai: String?
-        var custom: String?
-        // The first line can be cut by the window. It then fails to decode and is skipped.
-        for line in data.split(separator: UInt8(ascii: "\n")).reversed() where custom == nil {
-            guard line.range(of: Data("-title\"".utf8)) != nil,
-                  let entry = try? JSONDecoder().decode(TitleEntry.self, from: Data(line))
-            else { continue }
-            if entry.type == "custom-title" { custom = entry.customTitle }
-            if entry.type == "ai-title", ai == nil { ai = entry.aiTitle }
-        }
-        if let title = custom ?? ai { return title }
-        if size <= window { return nil }
+    let starts = offset.map { [$0] } ?? [256 << 10, 4 << 20].map { size > $0 ? size - $0 : 0 }
+    for start in starts {
+        guard (try? handle.seek(toOffset: start)) != nil, let data = try? handle.readToEnd() else { return nil }
+        if let title = latestTitle(in: data) { return title }
+        if start == 0 { return nil }
     }
     return nil
+}
+
+private func latestTitle(in data: Data) -> String? {
+    var ai: String?
+    // The first line can be cut by the read. It then fails to decode and is skipped.
+    for line in data.split(separator: UInt8(ascii: "\n")).reversed() {
+        guard line.range(of: Data("-title\"".utf8)) != nil,
+              let entry = try? JSONDecoder().decode(TitleEntry.self, from: Data(line))
+        else { continue }
+        if entry.type == "custom-title" { return entry.customTitle }
+        if entry.type == "ai-title", ai == nil { ai = entry.aiTitle }
+    }
+    return ai
+}
+
+/// FNV-1a: unlike Hasher, it gives the same value on every launch.
+func stableHash(_ text: String) -> UInt64 {
+    text.utf8.reduce(0xcbf2_9ce4_8422_2325) { ($0 ^ UInt64($1)) &* 0x100_0000_01b3 }
 }
 
 @MainActor @Observable
@@ -255,7 +266,9 @@ final class SessionStore {
             finishedAt: finishedAt,
             title: transcript.flatMap(title),
             shells: status == .background ? shells : 0,
-            agents: status == .background ? agents : 0)
+            agents: status == .background ? agents : 0,
+            // The process, not the conversation: the pet stays the same after /clear.
+            seed: stableHash("\(live.pid)-\(live.startedAt ?? 0)"))
     }
 
     /// <config dir>/projects/<folder>/<session id>.jsonl, searched once per session.
@@ -278,11 +291,13 @@ final class SessionStore {
         return count
     }
 
-    /// Reads the transcript again only when it grew.
+    /// Reads only what the transcript gained since the last look.
     private func title(_ transcript: URL) -> String? {
         let size = (try? transcript.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-        if let cached = titles[transcript], cached.size == size { return cached.title }
-        let title = transcriptTitle(transcript) ?? titles[transcript]?.title
+        let cached = titles[transcript]
+        if let cached, cached.size == size { return cached.title }
+        let grewFrom = cached.flatMap { size > $0.size ? UInt64($0.size) : nil }
+        let title = transcriptTitle(transcript, after: grewFrom) ?? cached?.title
         titles[transcript] = (size, title)
         return title
     }

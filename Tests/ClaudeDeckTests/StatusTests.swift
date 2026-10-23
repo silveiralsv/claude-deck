@@ -102,3 +102,40 @@ private let later = Date(timeIntervalSince1970: 200)
     #expect(sessionStatus(hook: nil, hookDate: nil, live: "busy", liveDate: later) == .working)
     #expect(sessionStatus(hook: nil, hookDate: nil, live: "idle", liveDate: later) == .done)
 }
+
+@Test func transcriptTitleReadsOnlyWhatWasAppended() throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("claude-deck-\(UUID().uuidString).jsonl")
+    defer { try? FileManager.default.removeItem(at: url) }
+    try #"{"type":"ai-title","aiTitle":"First","sessionId":"s"}"#.appending("\n").write(to: url, atomically: true, encoding: .utf8)
+    let handle = try FileHandle(forWritingTo: url)
+    defer { try? handle.close() }
+    let firstSize = try handle.seekToEnd()
+    handle.write(Data(#"{"type":"user","message":"no title here"}"#.appending("\n").utf8))
+    #expect(transcriptTitle(url, after: firstSize) == nil)
+    let secondSize = try handle.seekToEnd()
+    handle.write(Data(#"{"type":"ai-title","aiTitle":"Second","sessionId":"s"}"#.appending("\n").utf8))
+    #expect(transcriptTitle(url, after: secondSize) == "Second")
+}
+
+@Test func clawdMatchesClaudeCodeGlyphs() {
+    let rows = Clawd.pixels(eyes: .open, arms: .down).map { String($0) }
+    #expect(rows == [
+        "...#############..",
+        "...#############..",
+        "...##x#######x##..",
+        "...##x#######x##..",
+        ".#################",
+        ".#################",
+        "...#############..",
+        "...#############..",
+        "...#.#.......#.#..",
+        "...#.#.......#.#..",
+    ])
+}
+
+@Test func petAccentNeverMatchesTheBody() {
+    for seed in (0..<500).map({ stableHash("\($0)") }) {
+        let look = PetLook(seed: seed)
+        #expect(look.accent != look.body)
+    }
+}
