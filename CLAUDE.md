@@ -5,7 +5,7 @@ A macOS menu bar app (SwiftUI, Swift Package, no Xcode project) that shows the r
 ## Commands
 
 - Build: `./build.sh` (writes `ClaudeDeck.app`)
-- Relaunch after a build: `pkill -x ClaudeDeck; open ClaudeDeck.app`
+- Relaunch the development build after a build: `pkill -x ClaudeDeck; open ClaudeDeck.app` (this quits any copy, including one in `/Applications`). To install for real, follow INSTALL.md.
 - Tests: `scripts/test.sh`
 - Performance: `scripts/perf.sh [samples]` and `scripts/perf.sh profile`
 

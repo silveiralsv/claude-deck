@@ -43,10 +43,11 @@ curl -fL -o /tmp/ClaudeDeck.zip https://github.com/silveiralsv/claude-deck/relea
 ditto -x -k /tmp/ClaudeDeck.zip /Applications
 xattr -dr com.apple.quarantine /Applications/ClaudeDeck.app
 open /Applications/ClaudeDeck.app
-/Applications/ClaudeDeck.app/Contents/MacOS/ClaudeDeck --install-hooks
 ```
 
-The app is not notarized by Apple yet, so the `xattr` line lets macOS open it. `--install-hooks` adds Claude Code hooks to your `settings.json` files, after backing them up.
+The app is not notarized by Apple yet, so the `xattr` line lets macOS open it. If the download fails with a 404, there is no release yet: [build from source](#build-from-source).
+
+Then click the menu bar Clawd and **Install hooks**. It adds Claude Code hooks to your `settings.json` files, after backing them up (details in [INSTALL.md](INSTALL.md#4-install-the-hooks)).
 
 ## Statuses
 
