@@ -53,6 +53,12 @@ extension Status {
 struct DeckView: View {
     let store: SessionStore
     @State private var message: String?
+    @State private var gridHeight: CGFloat = 0
+
+    private var rows: [[Session]] {
+        let all = store.sessions
+        return stride(from: 0, to: all.count, by: 3).map { Array(all[$0..<min($0 + 3, all.count)]) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -64,12 +70,17 @@ struct DeckView: View {
             if store.sessions.isEmpty {
                 Text("Nenhuma sessão do Claude rodando.").foregroundStyle(.secondary)
             } else {
+                // A menu bar window sizes to its content, and a ScrollView there collapses to zero height.
+                // So the measured height of the grid sets the height of the scroll view, up to most of the screen.
                 ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
-                        ForEach(store.sessions) { SessionCard(session: $0) }
+                    Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+                        ForEach(rows.indices, id: \.self) { index in
+                            GridRow { ForEach(rows[index]) { SessionCard(session: $0) } }
+                        }
                     }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { gridHeight = $0 }
                 }
-                .frame(maxHeight: 560)
+                .frame(height: min(gridHeight, (NSScreen.main?.visibleFrame.height ?? 800) * 0.8))
             }
             Divider()
             HStack {
