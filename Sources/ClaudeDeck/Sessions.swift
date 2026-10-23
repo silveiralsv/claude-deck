@@ -6,7 +6,8 @@ let home = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HOME"] ?? N
 let stateDir = home.appendingPathComponent(".claude-deck/state")
 
 /// The declaration order is the order of the groups in the deck.
-enum Status: Int { case needsYou, working, done }
+/// Background: the turn is over, but shells, monitors or agents it started still run.
+enum Status: Int { case needsYou, working, background, done }
 
 struct Session: Identifiable, Equatable {
     let pid: Int32
@@ -16,10 +17,12 @@ struct Session: Identifiable, Equatable {
     let status: Status
     var finishedAt: Date? = nil
     var title: String? = nil
+    var shells = 0
+    var agents = 0
     var id: Int32 { pid }
 }
 
-/// Needs you, then working, both by name so their cards don't jump around.
+/// Needs you, working and background, each by name so their cards don't jump around.
 /// Then done, the most recently finished first.
 func deckOrder(_ a: Session, _ b: Session) -> Bool {
     if a.status != b.status { return a.status.rawValue < b.status.rawValue }
@@ -64,8 +67,10 @@ func claudeConfigDirs() -> [URL] {
 }
 
 /// Hooks carry the status. Claude's own session file covers sessions started before the hooks
-/// were installed, and an Esc interrupt, which ends the turn without a Stop hook.
-func sessionStatus(hook: HookEvent?, hookDate: Date?, live: String?, liveDate: Date?) -> Status {
+/// were installed, and turns that fire no hook: an Esc interrupt ends one without a Stop, and a
+/// finished background task starts one without a UserPromptSubmit.
+/// A done session whose background work still runs is in the background.
+func sessionStatus(hook: HookEvent?, hookDate: Date?, live: String?, liveDate: Date?, background: Bool = false) -> Status {
     let fromHook: Status? = hook.map {
         switch $0.hookEventName {
         case "Stop":
@@ -78,19 +83,81 @@ func sessionStatus(hook: HookEvent?, hookDate: Date?, live: String?, liveDate: D
             return .working
         }
     }
-    let idle = live == "idle"
+    // "shell" is how Claude marks an idle session with background shells.
+    let idle = live == "idle" || live == "shell"
+    let liveIsNewer = (liveDate ?? .distantPast) > (hookDate ?? .distantPast)
+    let status: Status
     switch fromHook {
     case nil:
-        return idle ? .done : .working
-    case .working? where idle && (liveDate ?? .distantPast) > (hookDate ?? .distantPast):
-        return .done
-    case let status?:
-        return status
+        status = idle ? .done : .working
+    case .working? where idle && liveIsNewer:
+        status = .done
+    case .done? where live == "busy" && liveIsNewer:
+        status = .working
+    case let fromHook?:
+        status = fromHook
     }
+    return status == .done && background ? .background : status
 }
 
 private func isAlive(_ pid: Int32) -> Bool {
     kill(pid, 0) == 0 || errno == EPERM
+}
+
+/// Background shells and monitors per session pid: the children Claude Code starts through
+/// its shell snapshot (zsh -c source …/shell-snapshots/…). MCP servers don't match.
+/// `known` remembers which child pids matched, since reading the arguments of a process is the expensive part.
+func backgroundShells(of pids: Set<Int32>, known: inout [Int32: Bool]) -> [Int32: Int] {
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
+    var size = 0
+    guard !pids.isEmpty, sysctl(&mib, 4, nil, &size, nil, 0) == 0 else { return [:] }
+    // Room for processes started between the two calls.
+    var procs = [kinfo_proc](repeating: kinfo_proc(), count: size / MemoryLayout<kinfo_proc>.stride + 32)
+    size = procs.count * MemoryLayout<kinfo_proc>.stride
+    guard sysctl(&mib, 4, &procs, &size, nil, 0) == 0 else { return [:] }
+    var counts: [Int32: Int] = [:]
+    var seen: [Int32: Bool] = [:]
+    for proc in procs.prefix(size / MemoryLayout<kinfo_proc>.stride) where pids.contains(proc.kp_eproc.e_ppid) {
+        let pid = proc.kp_proc.p_pid
+        let isShell = known[pid] ?? arguments(of: pid).contains("shell-snapshots")
+        seen[pid] = isShell
+        if isShell { counts[proc.kp_eproc.e_ppid, default: 0] += 1 }
+    }
+    known = seen
+    return counts
+}
+
+private func arguments(of pid: Int32) -> String {
+    var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+    var size = 0
+    guard sysctl(&mib, 3, nil, &size, nil, 0) == 0 else { return "" }
+    var buffer = [UInt8](repeating: 0, count: size)
+    guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return "" }
+    return String(decoding: buffer.prefix(size), as: UTF8.self)
+}
+
+/// What Claude Code writes next to each subagent transcript.
+private struct AgentMeta: Decodable {
+    let requestShape: String?
+    let finished: Bool?
+}
+
+/// Background subagents still running for a session: unfinished, with a transcript written in the last 10 minutes.
+/// Older Claude Code versions never set `finished`, hence the time limit.
+/// ponytail: an agent silent in one tool call for over 10 minutes drops out, and a killed one lingers up to 10 minutes.
+func runningAgents(of transcript: URL, now: Date = Date()) -> Int {
+    let dir = transcript.deletingPathExtension().appendingPathComponent("subagents")
+    let files = (try? FileManager.default.contentsOfDirectory(
+        at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+    return files.filter { file in
+        guard file.pathExtension == "jsonl",
+              let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
+              now.timeIntervalSince(modified) < 600,
+              let data = try? Data(contentsOf: file.deletingPathExtension().appendingPathExtension("meta.json")),
+              let meta = try? JSONDecoder().decode(AgentMeta.self, from: data)
+        else { return false }
+        return meta.requestShape == "background" && meta.finished != true
+    }.count
 }
 
 /// A title line of a session transcript. Claude Code appends both titles again on every turn.
@@ -133,6 +200,8 @@ final class SessionStore {
     private var timer: Timer?
     @ObservationIgnored private var transcripts: [String: URL] = [:]
     @ObservationIgnored private var titles: [URL: (size: Int, title: String?)] = [:]
+    @ObservationIgnored private var shellChildren: [Int32: Bool] = [:]
+    @ObservationIgnored private var agentCounts: [URL: (checked: Date, count: Int)] = [:]
 
     init() {
         refresh()
@@ -143,8 +212,7 @@ final class SessionStore {
     }
 
     func refresh() {
-        let fresh = claudeConfigDirs().flatMap { dir -> [Session] in
-            let account = String(dir.lastPathComponent.dropFirst())
+        let lives = claudeConfigDirs().flatMap { dir -> [(URL, LiveSession)] in
             let files = (try? FileManager.default.contentsOfDirectory(
                 at: dir.appendingPathComponent("sessions"), includingPropertiesForKeys: nil)) ?? []
             return files.filter { $0.pathExtension == "json" }.compactMap { file in
@@ -153,27 +221,41 @@ final class SessionStore {
                       live.kind == nil || live.kind == "interactive",
                       isAlive(live.pid)
                 else { return nil }
-                let hookURL = stateDir.appendingPathComponent("\(live.sessionId).json")
-                let hook = (try? Data(contentsOf: hookURL)).flatMap { try? snakeCase.decode(HookEvent.self, from: $0) }
-                let hookDate = (try? hookURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-                let liveDate = live.statusUpdatedAt.map { Date(timeIntervalSince1970: $0 / 1000) }
-                let status = sessionStatus(hook: hook, hookDate: hookDate, live: live.status, liveDate: liveDate)
-                // Claude stamps the moment a session goes idle. The hook file can be a later
-                // idle_prompt notification, so it is only the fallback.
-                let finishedAt = status == .done ? ((live.status == "idle" ? liveDate : nil) ?? hookDate) : nil
-                return Session(
-                    pid: live.pid,
-                    account: account,
-                    name: live.name ?? URL(fileURLWithPath: live.cwd).lastPathComponent,
-                    cwd: live.cwd,
-                    status: status,
-                    finishedAt: finishedAt,
-                    title: transcript(of: live.sessionId, in: dir).flatMap(title))
+                return (dir, live)
             }
         }
-        .sorted(by: deckOrder)
+        let shells = backgroundShells(of: Set(lives.map { $0.1.pid }), known: &shellChildren)
+        let fresh = lives.map { dir, live in session(live, in: dir, shells: shells[live.pid] ?? 0) }
+            .sorted(by: deckOrder)
         // Every assignment redraws the whole deck, so skip the ones that change nothing.
         if fresh != sessions { sessions = fresh }
+    }
+
+    private func session(_ live: LiveSession, in dir: URL, shells: Int) -> Session {
+        let hookURL = stateDir.appendingPathComponent("\(live.sessionId).json")
+        let hook = (try? Data(contentsOf: hookURL)).flatMap { try? snakeCase.decode(HookEvent.self, from: $0) }
+        let hookDate = (try? hookURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        let liveDate = live.statusUpdatedAt.map { Date(timeIntervalSince1970: $0 / 1000) }
+        let transcript = transcript(of: live.sessionId, in: dir)
+        // Only an idle session can be in the background, so only then are its agents counted.
+        let idle = live.status == "idle" || live.status == "shell"
+        let agents = idle ? transcript.map(agentCount) ?? 0 : 0
+        let status = sessionStatus(
+            hook: hook, hookDate: hookDate, live: live.status, liveDate: liveDate,
+            background: live.status == "shell" || shells > 0 || agents > 0)
+        // Claude stamps the moment a session goes idle. The hook file can be a later
+        // idle_prompt notification, so it is only the fallback.
+        let finishedAt = status == .done ? ((idle ? liveDate : nil) ?? hookDate) : nil
+        return Session(
+            pid: live.pid,
+            account: String(dir.lastPathComponent.dropFirst()),
+            name: live.name ?? URL(fileURLWithPath: live.cwd).lastPathComponent,
+            cwd: live.cwd,
+            status: status,
+            finishedAt: finishedAt,
+            title: transcript.flatMap(title),
+            shells: status == .background ? shells : 0,
+            agents: status == .background ? agents : 0)
     }
 
     /// <config dir>/projects/<folder>/<session id>.jsonl, searched once per session.
@@ -186,6 +268,14 @@ final class SessionStore {
             .first { FileManager.default.fileExists(atPath: $0.path) }
         transcripts[sessionId] = url
         return url
+    }
+
+    /// Lists the subagents folder at most every 5 seconds.
+    private func agentCount(_ transcript: URL) -> Int {
+        if let cached = agentCounts[transcript], Date().timeIntervalSince(cached.checked) < 5 { return cached.count }
+        let count = runningAgents(of: transcript)
+        agentCounts[transcript] = (Date(), count)
+        return count
     }
 
     /// Reads the transcript again only when it grew.

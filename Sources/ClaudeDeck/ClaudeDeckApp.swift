@@ -48,6 +48,7 @@ extension Status {
     var label: String {
         switch self {
         case .working: "trabalhando"
+        case .background: "em segundo plano"
         case .done: "terminou"
         case .needsYou: "precisa de você"
         }
@@ -56,9 +57,20 @@ extension Status {
     var color: Color {
         switch self {
         case .working: Color(red: 0.85, green: 0.47, blue: 0.34)
+        case .background: Color(red: 0.35, green: 0.55, blue: 0.95)
         case .done: .green
         case .needsYou: .red
         }
+    }
+}
+
+extension Session {
+    /// "5 shells · 1 agente": what still runs in the background.
+    var activity: String {
+        [shells > 0 ? "\(shells) \(shells == 1 ? "shell" : "shells")" : nil,
+         agents > 0 ? "\(agents) \(agents == 1 ? "agente" : "agentes")" : nil]
+            .compactMap { $0 }
+            .joined(separator: " · ")
     }
 }
 
@@ -134,6 +146,10 @@ struct SessionCard: View {
             Text("\(session.account) · \(URL(fileURLWithPath: session.cwd).lastPathComponent)")
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             Text(session.status.label).font(.caption2.bold()).foregroundStyle(session.status.color)
+            // Every card keeps this line, empty or not, so all cards in a row have the same height.
+            Text(session.activity)
+                .font(.caption2).foregroundStyle(session.status.color)
+                .lineLimit(1, reservesSpace: true)
             Button("Abrir terminal") { error = TerminalFocus.focus(pid: session.pid) }
                 .controlSize(.small)
             if let error { Text(error).font(.caption2).foregroundStyle(.red) }
@@ -193,13 +209,21 @@ struct PetView: View {
         "....####....",
     ]
 
+    /// Seconds per frame. A done pet doesn't move, so its timer barely ticks.
+    private var interval: Double {
+        switch status {
+        case .working, .needsYou: 0.4
+        case .background: 1.2
+        case .done: 3600
+        }
+    }
+
     var body: some View {
-        // A done pet doesn't move, so its timer barely ticks. A plain timer, not the animation
-        // schedule, which wakes on every display refresh.
-        TimelineView(.periodic(from: .now, by: status == .done ? 3600 : 0.4)) { context in
-            let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.4)
+        // A plain timer, not the animation schedule, which wakes on every display refresh.
+        TimelineView(.periodic(from: .now, by: interval)) { context in
+            let frame = Int(context.date.timeIntervalSinceReferenceDate / interval)
             let art = switch status {
-            case .working: frame % 2 == 0 ? Self.lookRight : Self.lookLeft
+            case .working, .background: frame % 2 == 0 ? Self.lookRight : Self.lookLeft
             case .done: Self.happy
             case .needsYou: Self.alarmed
             }
