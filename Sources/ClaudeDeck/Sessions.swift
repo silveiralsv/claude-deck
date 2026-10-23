@@ -8,7 +8,7 @@ let stateDir = home.appendingPathComponent(".claude-deck/state")
 /// The declaration order is the order of the groups in the deck.
 enum Status: Int { case needsYou, working, done }
 
-struct Session: Identifiable {
+struct Session: Identifiable, Equatable {
     let pid: Int32
     let account: String
     let name: String
@@ -143,7 +143,7 @@ final class SessionStore {
     }
 
     func refresh() {
-        sessions = claudeConfigDirs().flatMap { dir -> [Session] in
+        let fresh = claudeConfigDirs().flatMap { dir -> [Session] in
             let account = String(dir.lastPathComponent.dropFirst())
             let files = (try? FileManager.default.contentsOfDirectory(
                 at: dir.appendingPathComponent("sessions"), includingPropertiesForKeys: nil)) ?? []
@@ -172,6 +172,8 @@ final class SessionStore {
             }
         }
         .sorted(by: deckOrder)
+        // Every assignment redraws the whole deck, so skip the ones that change nothing.
+        if fresh != sessions { sessions = fresh }
     }
 
     /// <config dir>/projects/<folder>/<session id>.jsonl, searched once per session.

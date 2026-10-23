@@ -194,7 +194,9 @@ struct PetView: View {
     ]
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.4)) { context in
+        // A done pet doesn't move, so its timer barely ticks. A plain timer, not the animation
+        // schedule, which wakes on every display refresh.
+        TimelineView(.periodic(from: .now, by: status == .done ? 3600 : 0.4)) { context in
             let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.4)
             let art = switch status {
             case .working: frame % 2 == 0 ? Self.lookRight : Self.lookLeft
