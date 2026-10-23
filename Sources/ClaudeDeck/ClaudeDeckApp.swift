@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct ClaudeDeckApp: App {
     @State private var store = SessionStore()
+    @AppStorage("deckVisible") private var deckVisible = false
 
     init() {
         guard CommandLine.arguments.contains("--install-hooks") else { return }
@@ -29,6 +30,17 @@ struct ClaudeDeckApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+
+        // The same deck as a window that stays open above other apps.
+        Window("Claude Deck", id: "deck") {
+            DeckView(store: store)
+                .onAppear { deckVisible = true }
+                .onDisappear { deckVisible = false }
+        }
+        .windowResizability(.contentSize)
+        .windowLevel(.floating)
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(deckVisible ? .presented : .suppressed)
     }
 }
 
@@ -54,6 +66,9 @@ struct DeckView: View {
     let store: SessionStore
     @State private var message: String?
     @State private var gridHeight: CGFloat = 0
+    @AppStorage("deckVisible") private var deckVisible = false
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
 
     private var rows: [[Session]] {
         let all = store.sessions
@@ -84,10 +99,13 @@ struct DeckView: View {
             }
             Divider()
             HStack {
+                Button(deckVisible ? "Esconder deck" : "Exibir deck") {
+                    if deckVisible { dismissWindow(id: "deck") } else { openWindow(id: "deck") }
+                }
                 Button("Instalar hooks") {
                     do {
                         let changed = try HookInstaller.install()
-                        message = changed.isEmpty ? "Hooks já instalados." : "Hooks em \(changed.count) contas. Vale para sessões novas."
+                        message = changed.isEmpty ? "Hooks já instalados." : "Hooks instalados."
                     } catch {
                         message = error.localizedDescription
                     }

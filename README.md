@@ -8,6 +8,8 @@ A macOS menu bar app that shows every running [Claude Code](https://claude.com/c
 
 Each card has an **Abrir terminal** (open terminal) button that brings the session's tab to the front in Ghostty or Terminal.app.
 
+**Exibir deck** (show deck) opens the same deck as a window that stays above other apps, so it doesn't have to live behind the menu bar icon. **Esconder deck** (hide deck) closes it. The app remembers the choice on the next launch.
+
 It works with several Claude Code accounts at once (for example `claude`, `claude-work`, `claude-oss` set up with `CLAUDE_CONFIG_DIR`). It reads every `~/.claude*` config dir that has a `sessions` folder.
 
 The UI is in Portuguese.
@@ -16,8 +18,8 @@ The UI is in Portuguese.
 
 ## Requirements
 
-- macOS 14 or later
-- Swift 5.9 or later (Xcode or only the Command Line Tools)
+- macOS 15 or later
+- Swift 6 or later (Xcode or only the Command Line Tools)
 - Ghostty 1.3 or later, or Terminal.app
 
 ## Build and run
