@@ -2,23 +2,44 @@ import AppKit
 
 enum TerminalFocus {
     /// Brings the terminal tab that runs `pid` to the front. Returns an error message, or nil on success.
+    /// Only the app that runs the session is asked: the Ghostty title marker written to a Terminal.app
+    /// session would stay in its title.
     @MainActor
     static func focus(pid: Int32) -> String? {
         guard let tty = tty(of: pid) else { return String(localized: "No terminal") }
-        if isRunning("com.mitchellh.ghostty"), focusGhostty(tty: tty) { return nil }
-        if isRunning("com.apple.Terminal"), run(terminalScript(tty: tty))?.booleanValue == true { return nil }
-        return String(localized: "Tab not found")
+        let found: Bool
+        switch hostApp(of: pid) {
+        case "com.mitchellh.ghostty": found = focusGhostty(tty: tty)
+        case "com.apple.Terminal": found = run(terminalScript(tty: tty))?.booleanValue == true
+        default: return String(localized: "Terminal not supported")
+        }
+        return found ? nil : String(localized: "Tab not found")
     }
 
     static func tty(of pid: Int32) -> String? {
+        guard let dev = process(pid)?.kp_eproc.e_tdev, dev != -1, let name = devname(dev, S_IFCHR) else { return nil }
+        let tty = String(cString: name)
+        return tty == "??" ? nil : "/dev/" + tty
+    }
+
+    /// The bundle id of the app the session runs in: its closest ancestor process that is an app
+    /// (claude → zsh → login → Terminal, for example).
+    static func hostApp(of pid: Int32) -> String? {
+        var current = pid
+        for _ in 0..<10 {
+            guard let parent = process(current)?.kp_eproc.e_ppid, parent > 1 else { return nil }
+            if let bundleID = NSRunningApplication(processIdentifier: parent)?.bundleIdentifier { return bundleID }
+            current = parent
+        }
+        return nil
+    }
+
+    private static func process(_ pid: Int32) -> kinfo_proc? {
         var info = kinfo_proc()
         var size = MemoryLayout<kinfo_proc>.stride
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
         guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
-        let dev = info.kp_eproc.e_tdev
-        guard dev != -1, let name = devname(dev, S_IFCHR) else { return nil }
-        let tty = String(cString: name)
-        return tty == "??" ? nil : "/dev/" + tty
+        return info
     }
 
     /// Ghostty 1.3 doesn't expose a terminal's tty over AppleScript. So the title of the tab is set
@@ -53,6 +74,7 @@ enum TerminalFocus {
             repeat with w in windows
                 repeat with t in tabs of w
                     if tty of t is "\(tty)" then
+                        set miniaturized of w to false
                         set selected of t to true
                         set index of w to 1
                         activate
@@ -69,10 +91,6 @@ enum TerminalFocus {
         guard let handle = FileHandle(forWritingAtPath: tty) else { return }
         handle.write(Data("\u{1B}]2;\(title)\u{07}".utf8))
         try? handle.close()
-    }
-
-    private static func isRunning(_ bundleID: String) -> Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
     }
 
     private static func strings(_ list: NSAppleEventDescriptor?) -> [String] {
