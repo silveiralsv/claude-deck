@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Clawd, the Claude Code mascot, built from the same block glyphs and poses Claude Code prints in the terminal.
-/// Each terminal cell becomes 2x4 pixels, and each quadrant of a glyph a 1x2 pixel block.
+/// Each terminal cell becomes 2x4 pixels: each quadrant of a glyph a 1x2 pixel block, and the lid glyph ▂ its bottom row.
 enum Clawd {
-    enum Eyes { case open, left, right }
+    enum Eyes { case open, left, right, closed }
     enum Arms { case down, up, oneUp }
 
     static let width = 18
@@ -20,7 +20,7 @@ enum Clawd {
         .up: ["▗▟", "▄", " ▜", "█▘"],
         .oneUp: [" ▐", "▄", "▝▜", "█▘"],
     ]
-    private static let eyeGlyphs: [Eyes: String] = [.open: "▛███▛█", .left: "▟███▟█", .right: "█▟███▟"]
+    private static let eyeGlyphs: [Eyes: String] = [.open: "▛███▛█", .left: "▟███▟█", .right: "█▟███▟", .closed: "▂███▂█"]
     private static let feet = " ▝▝   ▝▝ "
 
     /// Rows of "#" body, "x" eye and "." empty.
@@ -31,6 +31,10 @@ enum Clawd {
             for (offset, glyph) in glyphs.enumerated() {
                 let x = (column + offset) * 2
                 let y = row * 4
+                if glyph == "▂" {
+                    for dy in 0..<4 { for dx in 0..<2 { grid[y + dy][x + dx] = dy == 3 ? "x" : "#" } }
+                    continue
+                }
                 let filled = quadrants[glyph] ?? []
                 for quadrant in 0..<4 where darkGaps || filled.contains(quadrant) {
                     let px = x + quadrant % 2
@@ -183,20 +187,20 @@ struct PetView: View {
         look = PetLook(seed: seed)
     }
 
-    private var step: Double { status == .background ? 1.2 : 0.4 }
+    private var step: Double {
+        switch status {
+        case .working, .needsYou: 0.4
+        case .done: 1.6
+        case .background: 1.2
+        }
+    }
     /// One clock for every pet, so they all change frame at the same moments. Every pet redraw is a
     /// layout pass of the whole window, and pets on their own clocks each cost a pass.
     private static let clock = Date.now
 
     var body: some View {
-        // A done pet doesn't move. Every pet redraw is a layout pass of the whole window, and blinking
-        // done pets cost 2 to 4 points of CPU.
-        if status == .done {
-            sprite(at: .now)
-        } else {
-            // A plain timer, not the animation schedule, which wakes on every display refresh.
-            TimelineView(.periodic(from: Self.clock, by: step)) { sprite(at: $0.date) }
-        }
+        // A plain timer, not the animation schedule, which wakes on every display refresh.
+        TimelineView(.periodic(from: Self.clock, by: step)) { sprite(at: $0.date) }
     }
 
     private func sprite(at date: Date) -> some View {
@@ -204,7 +208,7 @@ struct PetView: View {
         let pose: (eyes: Clawd.Eyes, arms: Clawd.Arms) = switch status {
         case .working, .background: (frame % 2 == 0 ? .left : .right, .down)
         case .needsYou: (.open, frame % 2 == 0 ? .up : .oneUp)
-        case .done: (.open, .down)
+        case .done: (.closed, .down)
         }
         // The hat takes 6 rows, Clawd 10, and one spare row lets a working pet hop.
         let hop = status == .working && frame % 2 == 0 ? 0.0 : 1.0
@@ -228,7 +232,37 @@ struct PetView: View {
         .overlay(alignment: .topTrailing) {
             if status == .needsYou {
                 Text("!").font(.system(size: 18, weight: .black, design: .monospaced)).foregroundStyle(.red)
+            } else if status == .done {
+                SleepingZs(shown: frame % 4).offset(x: 22, y: -3)
             }
         }
+    }
+}
+
+/// "z Z Z" rising from a sleeping pet, small near its head and bigger further away. They appear one
+/// at a time, then all go and start again.
+struct SleepingZs: View {
+    let shown: Int
+
+    // Smaller than 5 pixels, a Z has no room for its diagonal and reads as an I.
+    private static let zs: [(pixels: [String], x: Double, y: Double)] = [
+        (["#####", "...#.", "..#..", ".#...", "#####"], 0, 16),
+        (["######", "....#.", "...#..", "..#...", ".#....", "######"], 9, 6),
+        (["#######", ".....#.", "....#..", "...#...", "..#....", ".#.....", "#######"], 19, 0),
+    ]
+
+    var body: some View {
+        Canvas { context, _ in
+            let px = 1.5
+            for z in Self.zs.prefix(shown) {
+                for (y, row) in z.pixels.enumerated() {
+                    for (x, pixel) in row.enumerated() where pixel == "#" {
+                        context.fill(Path(CGRect(x: z.x + Double(x) * px, y: z.y + Double(y) * px, width: px, height: px)), with: .foreground)
+                    }
+                }
+            }
+        }
+        .frame(width: 30, height: 24)
+        .foregroundStyle(.secondary)
     }
 }

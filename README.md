@@ -60,7 +60,7 @@ Then click the menu bar Clawd and **Install hooks**. It adds Claude Code hooks t
 | **needs you** | Waves its arms, with a "!" | Red border. A permission prompt, a question or a plan is waiting for you. |
 | **working** | Hops and looks left and right | Orange |
 | **in background** | Looks left and right slowly | Blue, with what still runs ("2 shells · 1 agent") |
-| **done** | Stands still | Green |
+| **done** | Sleeps: eyes closed, "z Z Z" rising | Green |
 
 Cards that need you come first, then the working ones, then the background ones, then the done ones with the most recently finished first. Each card shows the session's title: the one you set with `/rename`, else the title Claude Code generates for the conversation (the same one in the terminal tab).
 

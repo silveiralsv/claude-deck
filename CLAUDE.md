@@ -32,7 +32,7 @@ Every pet redraw is a layout and render pass of the whole window. Most regressio
 - Publishing `sessions` every second when nothing changed. `refresh()` assigns only when the list changed.
 - `TimelineView(.animation)`, which wakes on every display refresh. Use `.periodic` timers.
 - Pets on their own clocks. Each pet changed frame at its own moment, so each one cost a layout pass, and the passes added up: 1% to 11% CPU with 3 to 9 working sessions, depending on when each started. All pets now share one clock (`PetView.clock`): about 1% with any number.
-- Animating pets that don't change. A done pet is drawn once. Blinking done pets cost 2 to 4 points of CPU and grew with uptime, so the blink was removed.
+- Blinking done pets, each on its own schedule: 2 to 4 points of CPU, growing with uptime. Done pets now sleep ("z Z Z") on the shared clock instead, one step every 1.6 s: with 10 sessions all done, about 0.3% CPU, the same as still pets (a step every 0.8 s cost 0.8%). Memory is about 120 MB instead of 30 MB then, because the window keeps drawing.
 - Cards with `maxHeight: .infinity` in the grid. CPU went from 3–4% to about 1.2% when that was replaced with `lineLimit(_, reservesSpace: true)`.
 - Reading big files every second. Transcripts reach 50 MB, so `transcriptTitle(_:after:)` reads only what was appended. Before that, a session without a title made the deck read 1.5 MB every second (16% CPU).
 - Reading process arguments every second. `backgroundShells(of:known:)` caches them per pid.

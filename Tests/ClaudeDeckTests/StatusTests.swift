@@ -139,6 +139,9 @@ private let later = Date(timeIntervalSince1970: 200)
         "...#.#.......#.#..",
         "...#.#.......#.#..",
     ])
+    let closed = Clawd.pixels(eyes: .closed, arms: .down).map { String($0) }
+    #expect(closed[2] == "...#############..")
+    #expect(closed[3] == "...#xx######xx##..")
 }
 
 @Test func petAccentNeverMatchesTheBody() {
