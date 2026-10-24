@@ -184,6 +184,9 @@ struct PetView: View {
     }
 
     private var step: Double { status == .background ? 1.2 : 0.4 }
+    /// One clock for every pet, so they all change frame at the same moments. Every pet redraw is a
+    /// layout pass of the whole window, and pets on their own clocks each cost a pass.
+    private static let clock = Date.now
 
     var body: some View {
         // A done pet doesn't move. Every pet redraw is a layout pass of the whole window, and blinking
@@ -192,7 +195,7 @@ struct PetView: View {
             sprite(at: .now)
         } else {
             // A plain timer, not the animation schedule, which wakes on every display refresh.
-            TimelineView(.periodic(from: .now, by: step)) { sprite(at: $0.date) }
+            TimelineView(.periodic(from: Self.clock, by: step)) { sprite(at: $0.date) }
         }
     }
 

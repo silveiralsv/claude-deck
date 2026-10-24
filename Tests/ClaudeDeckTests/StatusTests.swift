@@ -52,6 +52,14 @@ private let later = Date(timeIntervalSince1970: 200)
     #expect(transcriptTitle(url) == "My name")
 }
 
+@Test func waitingSessionFileMeansNeedsYou() {
+    #expect(sessionStatus(hook: nil, hookDate: nil, live: "waiting", liveDate: later) == .needsYou)
+    // A permission dialog opened after the last hook.
+    #expect(sessionStatus(hook: event("PreToolUse", tool: "Bash"), hookDate: earlier, live: "waiting", liveDate: later) == .needsYou)
+    // The user answered: the newer hook wins.
+    #expect(sessionStatus(hook: event("PostToolUse", tool: "Bash"), hookDate: later, live: "waiting", liveDate: earlier) == .working)
+}
+
 @Test func backgroundWorkAndHooklessTurns() {
     // Turn over, but shells, monitors or agents still run.
     #expect(sessionStatus(hook: event("Stop"), hookDate: later, live: "shell", liveDate: earlier, background: true) == .background)

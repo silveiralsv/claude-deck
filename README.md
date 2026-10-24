@@ -97,7 +97,7 @@ Run the tests with `scripts/test.sh`, and measure CPU and memory with `scripts/p
 
 | Source | What it gives |
 | --- | --- |
-| `~/.claude*/sessions/<pid>.json`, written by Claude Code | The list of live sessions, their name, folder and a `busy`, `idle` or `shell` (idle with background shells) status |
+| `~/.claude*/sessions/<pid>.json`, written by Claude Code | The list of live sessions, their name, folder and a `busy`, `idle`, `shell` (idle with background shells) or `waiting` (a question, a permission dialog or a menu waits for the user) status |
 | Claude Code hooks, saved by `hook.sh` to `~/.claude-deck/state/<session_id>.json` | The status: working, done, needs you |
 | The end of `~/.claude*/projects/<folder>/<session_id>.jsonl`, the session transcript | The `custom-title` or `ai-title` of the session |
 | Child processes of the session started through `shell-snapshots` | The background shells and monitors |
@@ -115,7 +115,7 @@ Hook events map to a status like this:
 | `Stop`, `Notification` (`idle_prompt`) | done |
 | `SessionEnd` | the state file is deleted |
 
-Some turns fire no hook: an Esc interrupt ends one without `Stop`, and a finished background task starts one without `UserPromptSubmit`. So when the session file changed after the last hook, its `idle` or `busy` wins. A done session with background shells, monitors or agents is shown in the background.
+Some turns fire no hook: an Esc interrupt ends one without `Stop`, and a finished background task starts one without `UserPromptSubmit`. So when the session file changed after the last hook, its `idle`, `busy` or `waiting` (needs you) wins. A done session with background shells, monitors or agents is shown in the background.
 
 Ghostty 1.3 does not expose the tty of a terminal over AppleScript. So the app sets the tab title to a marker through the tty, finds the Ghostty terminal with that title, puts the title back, and focuses it.
 

@@ -89,6 +89,8 @@ func sessionStatus(hook: HookEvent?, hookDate: Date?, live: String?, liveDate: D
     // "shell" is how Claude marks an idle session with background shells.
     let idle = live == "idle" || live == "shell"
     let liveIsNewer = (liveDate ?? .distantPast) > (hookDate ?? .distantPast)
+    // Claude marks a session "waiting" while a question, a permission dialog or a menu waits for the user.
+    if live == "waiting", hook == nil || liveIsNewer { return .needsYou }
     let status: Status
     switch fromHook {
     case nil:
