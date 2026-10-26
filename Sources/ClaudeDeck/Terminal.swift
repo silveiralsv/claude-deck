@@ -6,6 +6,8 @@ enum TerminalFocus {
     /// session would stay in its title.
     @MainActor
     static func focus(pid: Int32) -> String? {
+        let herdr = herdrVariables(arguments(of: pid))
+        if !herdr.isEmpty { return focusHerdr(herdr) }
         guard let tty = tty(of: pid) else { return String(localized: "No terminal") }
         let found: Bool
         switch hostApp(of: pid) {
@@ -32,6 +34,49 @@ enum TerminalFocus {
             current = parent
         }
         return nil
+    }
+
+    /// The variables herdr sets in each of its panes, from the arguments and environment of a process.
+    static func herdrVariables(_ arguments: String) -> [String: String] {
+        var variables: [String: String] = [:]
+        for entry in arguments.split(separator: "\0") where entry.hasPrefix("HERDR_") {
+            let parts = entry.split(separator: "=", maxSplits: 1)
+            if parts.count == 2 { variables[String(parts[0])] = String(parts[1]) }
+        }
+        return variables
+    }
+
+    /// Herdr runs each session in a pty of its own, which no terminal app knows about. So the herdr
+    /// CLI focuses the session's pane, then the terminal tab that runs the herdr client comes to the front.
+    @MainActor
+    private static func focusHerdr(_ herdr: [String: String]) -> String? {
+        guard let bin = herdr["HERDR_BIN_PATH"], let pane = herdr["HERDR_PANE_ID"] else {
+            return String(localized: "Tab not found")
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: bin)
+        task.arguments = ["agent", "focus", pane]
+        // The socket picks the herdr session the pane belongs to.
+        if let socket = herdr["HERDR_SOCKET_PATH"] {
+            task.environment = ProcessInfo.processInfo.environment.merging(["HERDR_SOCKET_PATH": socket]) { $1 }
+        }
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        guard (try? task.run()) != nil else { return String(localized: "Tab not found") }
+        task.waitUntilExit()
+        guard task.terminationStatus == 0 else { return String(localized: "Tab not found") }
+        // A herdr client runs in a terminal and, unlike herdr commands run inside a pane, has no pane.
+        // ponytail: the first client found, which can be attached to another named herdr session.
+        let client = processes().first {
+            name(of: $0) == "herdr" && $0.kp_eproc.e_tdev != -1
+                && herdrVariables(arguments(of: $0.kp_proc.p_pid))["HERDR_PANE_ID"] == nil
+        }
+        guard let client else { return String(localized: "No terminal") }
+        return focus(pid: client.kp_proc.p_pid)
+    }
+
+    private static func name(of proc: kinfo_proc) -> String {
+        withUnsafeBytes(of: proc.kp_proc.p_comm) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
     }
 
     private static func process(_ pid: Int32) -> kinfo_proc? {

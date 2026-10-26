@@ -150,3 +150,9 @@ private let later = Date(timeIntervalSince1970: 200)
         #expect(look.accent != look.body)
     }
 }
+
+@Test func herdrVariablesComeFromTheEnvironment() {
+    let procargs = "claude\0--resume\0PATH=/bin\0HERDR_PANE_ID=w7:p1\0HERDR_SOCKET_PATH=/s=1.sock\0"
+    #expect(TerminalFocus.herdrVariables(procargs) == ["HERDR_PANE_ID": "w7:p1", "HERDR_SOCKET_PATH": "/s=1.sock"])
+    #expect(TerminalFocus.herdrVariables("claude\0PATH=/bin\0").isEmpty)
+}

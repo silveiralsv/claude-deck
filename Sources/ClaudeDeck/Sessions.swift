@@ -113,16 +113,10 @@ private func isAlive(_ pid: Int32) -> Bool {
 /// its shell snapshot (zsh -c source …/shell-snapshots/…). MCP servers don't match.
 /// `known` remembers which child pids matched, since reading the arguments of a process is the expensive part.
 func backgroundShells(of pids: Set<Int32>, known: inout [Int32: Bool]) -> [Int32: Int] {
-    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
-    var size = 0
-    guard !pids.isEmpty, sysctl(&mib, 4, nil, &size, nil, 0) == 0 else { return [:] }
-    // Room for processes started between the two calls.
-    var procs = [kinfo_proc](repeating: kinfo_proc(), count: size / MemoryLayout<kinfo_proc>.stride + 32)
-    size = procs.count * MemoryLayout<kinfo_proc>.stride
-    guard sysctl(&mib, 4, &procs, &size, nil, 0) == 0 else { return [:] }
+    guard !pids.isEmpty else { return [:] }
     var counts: [Int32: Int] = [:]
     var seen: [Int32: Bool] = [:]
-    for proc in procs.prefix(size / MemoryLayout<kinfo_proc>.stride) where pids.contains(proc.kp_eproc.e_ppid) {
+    for proc in processes() where pids.contains(proc.kp_eproc.e_ppid) {
         let pid = proc.kp_proc.p_pid
         let isShell = known[pid] ?? arguments(of: pid).contains("shell-snapshots")
         seen[pid] = isShell
@@ -132,7 +126,20 @@ func backgroundShells(of pids: Set<Int32>, known: inout [Int32: Bool]) -> [Int32
     return counts
 }
 
-private func arguments(of pid: Int32) -> String {
+func processes() -> [kinfo_proc] {
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
+    var size = 0
+    guard sysctl(&mib, 4, nil, &size, nil, 0) == 0 else { return [] }
+    // Room for processes started between the two calls.
+    var procs = [kinfo_proc](repeating: kinfo_proc(), count: size / MemoryLayout<kinfo_proc>.stride + 32)
+    size = procs.count * MemoryLayout<kinfo_proc>.stride
+    guard sysctl(&mib, 4, &procs, &size, nil, 0) == 0 else { return [] }
+    procs.removeSubrange((size / MemoryLayout<kinfo_proc>.stride)...)
+    return procs
+}
+
+/// The arguments of a process, then its environment, separated by NUL bytes.
+func arguments(of pid: Int32) -> String {
     var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
     var size = 0
     guard sysctl(&mib, 3, nil, &size, nil, 0) == 0 else { return "" }

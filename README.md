@@ -27,7 +27,7 @@
 - **A Clawd per session.** Each session gets its own Clawd, with a color and a hat that stay the same while it runs. Its pose tells you the status.
 - **Knows when it needs you.** Permission prompts, questions and plans waiting for approval jump to the top, with a red border. In the menu bar, Clawd raises its arms and shows how many.
 - **Sees background work.** A session whose turn is over but still runs shells, monitors or agents shows them, so "done" really means done.
-- **One click to the terminal.** **Open terminal** brings the session's tab to the front in Ghostty or Terminal.app.
+- **One click to the terminal.** **Open terminal** brings the session's tab to the front in Ghostty or Terminal.app, and its pane in [herdr](https://herdr.dev).
 - **Light and private.** Native SwiftUI, no dependencies. About 1.5% CPU and 130 MB with the deck window open. It only reads files that Claude Code already writes on your Mac, so it uses no tokens and sends nothing anywhere.
 
 ## Install
@@ -103,6 +103,7 @@ Run the tests with `scripts/test.sh`, and measure CPU and memory with `scripts/p
 | Child processes of the session started through `shell-snapshots` | The background shells and monitors |
 | `<session_id>/subagents/*.meta.json` next to the transcript | The background agents: unfinished, written in the last 10 minutes |
 | `sysctl` on the session's pid | The session's tty |
+| `HERDR_PANE_ID` in the session's environment | The herdr pane of the session, focused with `herdr agent focus` |
 | AppleScript | Focus the Ghostty or Terminal.app tab of that tty |
 
 Hook events map to a status like this:
@@ -118,6 +119,8 @@ Hook events map to a status like this:
 Some turns fire no hook: an Esc interrupt ends one without `Stop`, and a finished background task starts one without `UserPromptSubmit`. So when the session file changed after the last hook, its `idle`, `busy` or `waiting` (needs you) wins. A done session with background shells, monitors or agents is shown in the background.
 
 Ghostty 1.3 does not expose the tty of a terminal over AppleScript. So the app sets the tab title to a marker through the tty, finds the Ghostty terminal with that title, puts the title back, and focuses it.
+
+A session in herdr runs in a pty of herdr's own, which no terminal app knows about. So the app focuses its pane with the herdr CLI, then the terminal tab that runs the herdr client.
 
 ## Limitations
 
